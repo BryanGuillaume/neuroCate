@@ -181,7 +181,7 @@ function [results] = cate(Y,X,M,nZ,varargin)
             (rotationMatrix((nX+1):end,:) * rotationMatrix((nX+1):end, resamplingMatrix(:,iB))') * rotY;
         elseif strcmpi(inference, 'wb')
           rotY_b = ...
-            ((rotationMatrix((nX+1):end,:) .* kron(resamplingMatrix(:,iB)', ones(nSubj-nX,1))) * rotationMatrix((nX+1):end,:)') * rotY;
+            (rotationMatrix((nX+1):end,:) .* kron(resamplingMatrix(:,iB)', ones(nSubj-nX,1))) * rotY;
         else
           error('unknown inference procedure');
         end

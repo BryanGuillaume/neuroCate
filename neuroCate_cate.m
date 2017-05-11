@@ -1,4 +1,4 @@
-function [results] = cate(Y,X,M,nZ,varargin)
+function [results] = neuroCate_cate(Y,X,M,nZ,varargin)
 %    'inference'  - Define the type of inference
 %    'parametric' - only a parametric inference is conducted (the default).
 %    'permutation'- A permutation inference is conducted (the parametric
@@ -74,12 +74,12 @@ clear Y
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 if nZ > 0
   % run the factor analysis using PCA
-  [rotZZ, betaZ, sigmaSquare] = fastPCA(rotY((nM + 1):end,:), nZ);
+  [rotZZ, betaZ, sigmaSquare] = neuroCate_fastPCA(rotY((nM + 1):end,:), nZ);
   
   % run the robust regression
   scaledRotMY = rotatedMM \ rotY(1:nM,:); % scale the data and variance estimate by (Q_M' M)^-1
   scaleForSigmaSquare = diag(inv(rotatedMM' * rotatedMM));%TODO in R cate package, they do diag(inv(rotatedMM * rotatedMM'))????
-  alphaM = robustRegression(scaledRotMY, betaZ,...
+  alphaM = neuroCate_robustRegression(scaledRotMY, betaZ,...
     sigmaSquare, scaleForSigmaSquare, 100, 10^-10);
   clear scaledRotY
   

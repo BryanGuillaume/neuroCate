@@ -1,4 +1,4 @@
-function [rotZZ, betaZ, sigmaSquare] = fastPCA(Y, nZ)
+function [rotZZ, betaZ, sigmaSquare] = neuroCate_fastPCA(Y, nZ)
 % function for solving the factor models in cate
 % Instead being based on an SVD on Y or an eigenvalue decompostion of Y'*Y,
 % the fast PCA is based on a truncated eigenvalue decompostion of Y*Y'

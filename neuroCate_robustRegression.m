@@ -1,4 +1,4 @@
-function [alphaM] = robustRegression(scaledRotMY, betaZ, sigmaSquare, scaleForSigmaSquare, nIter, convergenceThreshold)
+function [alphaM] = neuroCate_robustRegression(scaledRotMY, betaZ, sigmaSquare, scaleForSigmaSquare, nIter, convergenceThreshold)
 % function that extimate alphaM through robust regression (Huber loss function assumed)
 [nM, nVox] = size(scaledRotMY);
 nZ = size(betaZ, 1);

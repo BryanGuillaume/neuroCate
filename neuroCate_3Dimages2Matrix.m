@@ -1,4 +1,4 @@
-function [Y, maskXYZ_vox, maskXYZ_mm, imagesPath] = neuroCate_3Dimages2Matrix()
+function [Y, maskXYZ_vox, maskXYZ_mm, imagesPath, maskPath] = neuroCate_3Dimages2Matrix()
 
 imagesPath = spm_select([1 Inf], 'image', 'Select 3D images to analyse');
 maskPath = spm_select(1, 'image', 'Select a mask');

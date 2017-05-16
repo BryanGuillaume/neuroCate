@@ -31,12 +31,12 @@ if ~strcmpi(inference, 'parametric')
     % set the random seed for repeatablity
     rng(seed);
     % build the resampling matrix now
-    if strcmpi(inference, 'permutation')
+    if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm')
       resamplingMatrix = zeros(nSubj, nB);
       for iB = 1:nB
         resamplingMatrix(:,iB) = randperm(nSubj);
       end
-    else % Wild Bootstrap resampling matrix from the Rademacher distr.
+    elseif strcmpi(inference, 'wild bootstrap') || strcmpi(inference, 'wb')
       resamplingMatrix = randi([0 1], nSubj, nB)*2 - 1;
     end
     
@@ -44,13 +44,13 @@ if ~strcmpi(inference, 'parametric')
     if ~all(size(resamplingMatrix) == [nSubj, nB])
       error('The specified resampling matrix does not have the appropriate dimensions. Please revise your analysis specification.')
     end
-    if strcmpi(inference, 'permutation')
+    if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm')
       for iB = 1:nB
         if any(sort(resamplingMatrix(:,iB)) ~= (1:nSubj)')
           error('The specified resampling matrix is not an appropriate permutation resampling matrix');
         end
       end
-    else % WB resampling matrix
+    elseif strcmpi(inference, 'wild bootstrap') || strcmpi(inference, 'wb')
       for iB = 1:nB
         if any(sort(unique(resamplingMatrix(:,iB))) ~= [-1;1])
           error('The specified resampling matrix is not an appropriate Wild Bootstrap resampling matrix');
@@ -133,7 +133,7 @@ results.Z = Z;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 % non-parametric inference
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
-if strcmpi(inference, 'permutation') || strcmpi(inference, 'wb')
+if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(inference, 'wild bootsrap') || strcmpi(inference, 'wb')
   maxScoreF = zeros(nB+1,1);
   maxScoreF(1) = max(scoreF);
   pNonParamUnc = ones(1, nVox);
@@ -166,20 +166,20 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'wb')
     
     % resample the data
     if nZ > 0
-      if strcmpi(inference, 'permutation')
+      if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm')
         rotY_b = fittedRotY + ...
           (rotationMatrix((nX+1):end,:) * rotationMatrix((nX+1):end, resamplingMatrix(:,iB))') * rotResid;
-      elseif strcmpi(inference, 'wb')
+      elseif strcmpi(inference, 'wild bootstrap') || strcmpi(inference, 'wb')
         rotY_b = fittedRotY + ...
           ((rotationMatrix((nX+1):end,:) .* kron(resamplingMatrix(:,iB)', ones(nSubj-nX,1))) * rotationMatrix((nX+1):end,:)') * rotResid;
       else
         error('unknown inference procedure');
       end
     else % naive regression
-      if strcmpi(inference, 'permutation')
+      if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm')
         rotY_b = ...
           (rotationMatrix((nX+1):end,:) * rotationMatrix((nX+1):end, resamplingMatrix(:,iB))') * rotY;
-      elseif strcmpi(inference, 'wb')
+      elseif strcmpi(inference, 'wild bootstrap') || strcmpi(inference, 'wb')
         rotY_b = ...
           ((rotationMatrix((nX+1):end,:) .* kron(resamplingMatrix(:,iB)', ones(nSubj-nX,1))) * rotationMatrix((nX+1):end,:)') * rotY;
       else
@@ -190,11 +190,11 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'wb')
     % estimate the model an compute resampled scores
     if nZ > 0
       % run the factor analysis using PCA
-      [~, betaZ_b, sigmaSquare_b] = fastPCA(rotY_b((nM + 1):end,:), nZ);
+      [~, betaZ_b, sigmaSquare_b] = neuroCate_fastPCA(rotY_b((nM + 1):end,:), nZ);
       
       % run the robust regression
       scaledRotMY_b = rotatedMM \ rotY_b(1:nM,:); % scale the data and variance estimate by (Q_M' M)^-1
-      alphaM_b = robustRegression(scaledRotMY_b, betaZ_b,...
+      alphaM_b = neuroCate_robustRegression(scaledRotMY_b, betaZ_b,...
         sigmaSquare_b, scaleForSigmaSquare, 100, 10^-10);
       
       % estimate betaM

@@ -1,4 +1,4 @@
-function [nZ, S, S0, ER] = neuroCate_estimateNumberOfFactors(Y, XM, estimator, nZMax)
+function [nZ, S, S0, ER] = neuroCate_estimateNumberOfFactors(Y, XM, nZMax, estimator)
 % Produce an estimate of the number of factors using the Eigenvalue Ratio
 % (ER) estimator proposed by Ahn and Horenstein (2013)  
 %
@@ -10,13 +10,12 @@ function [nZ, S, S0, ER] = neuroCate_estimateNumberOfFactors(Y, XM, estimator, n
 % influence on the estimation of nZ. By default, it is set to 10
 if nargin == 1
   XM = [];
-  estimator = 'ER';
   nZMax = 10;
 elseif nargin == 2
-  nZMax = 10;
   estimator = 'ER';
+  nZMax = 10;  
 elseif nargin == 3
-  nZMax = 10;
+  estimator = 'ER';  
 end
 
 % number of known covariates
@@ -40,7 +39,7 @@ S = sort(diag(S),'descend') / (nObs * nVox);
 % the formula used by Ahn and Horenstein (2013) in their simulations
 S0 = sum(S) / log(m);
 
-if estimator == 'ER'
+if strcmpi(estimator,'ER')
   % compute eigenvalue ratios
   ER = [S0; S(1:nZMax)] ./ S(1:(nZMax+1)) ;
 end

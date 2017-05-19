@@ -16,6 +16,9 @@ defaults   = {'parametric', true, 999, 0, []};
 % compute useful variables from inputs
 nX = size(X,2);
 nM = size(M,2);
+if (nM > 1)
+  error('Further checks needed to validate neuroCate with several covariates of interests')
+end
 [nSubj, nVox] = size(Y);
 XM = [X M];
 invSigmaXM = inv(XM' * XM / nSubj);
@@ -110,7 +113,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if nM == 1
-  pParamUnc = fcdf(scoreF, 1, approxDof, 'upper');
+  %pParamUnc = fcdf(scoreF, 1, approxDof, 'upper');
+  pParamUnc = tcdf(-sqrt(scoreF), approxDof)*2; % useful for older version of matlab
 else
   % TODO when nM > 1
 end

@@ -1,16 +1,32 @@
 function [results] = neuroCate_cate(Y,X,M,nZ,varargin)
-%    'inference'  - Define the type of inference
-%    'parametric' - only a parametric inference is conducted (the default).
-%    'permutation'- A permutation inference is conducted (the parametric
-%                   inference comes for free)
-%    'wb'         - A Wild Bootstrap inference is conducted (the parametric
-%                   inference comes for free)
+%   'inference' - Define the type of inference
+%       Choices are:
+%           'parametric' - only a parametric inference is conducted (the default).
+%           'permutation'- A permutation inference is conducted (the parametric
+%                          inference comes for free)
+%           'wb'         - A Wild Bootstrap inference is conducted (the parametric
+%                          inference comes for free)
+%   'saveResampledFScores>=' - Per default, does not save anything
+%        (i.e. behave like the set value is Inf)
+%        In practice, those scores can be used to compute a non-parameric
+%        FDR as described in Millstein and Volfson (2013). For example,
+%        setting this to 4, would save only F-scores greater or equal to 4.
+%        The importance of not saving everything is to limit the size of the
+%        output.
+%   'saveResampledPValues<=' - Per default, does not save anything
+%        (i.e. behave like the set value is 0)
+%        In practice, those p-values can be used to compute a non-parameric
+%        FDR as described in Millstein and Volfson (2013). For example,
+%        setting this to 0.01 would save all resampled uncorrected p-values 
+%        smaller than or equal to 0.01. 
+%        The importance of not saving everything is to limit the size of the
+%        output. 
 
 % deal with the optional parameters
-paramNames = {'inference', 'residAdj', 'nB', 'seed', 'resamplingMatrix'};
-defaults   = {'parametric', true, 999, 0, []};
+paramNames = {'inference', 'residAdj', 'nB', 'seed', 'resamplingMatrix', 'saveResampledFScores>=', 'saveResampledPValues<='};
+defaults   = {'parametric', true, 999, 0, [], [], []};
 
-[inference, residAdj, nB, seed, resamplingMatrix]...
+[inference, residAdj, nB, seed, resamplingMatrix, minScoreFToSave, maxPValueToSave]...
   = internal.stats.parseArgs(paramNames, defaults, varargin{:});
 
 % compute useful variables from inputs
@@ -143,6 +159,14 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
   pNonParamUnc = ones(1, nVox);
   pNonParamFWE = ones(1, nVox);
   
+  % create cell arrays to save resampled score or p-values if required
+  if ~isempty(minScoreFToSave)
+  	results.resampledScores = cell(nB, 1);
+  end
+  if ~isempty(maxPValueToSave)
+    results.resampledPValues = cell(nB, 1);
+  end
+  
   % compute the fitted data + residuals of the original data
   if nZ > 0
     rotMZZ = [rotatedMM * alphaM ; rotZZ];
@@ -158,6 +182,7 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
   end
   fprintf('Bootsrap # 0');
   for iB = 1:nB
+    % some code to print the progress
     if iB <= 10
       fprintf('\b%i', iB);
     elseif iB <= 100
@@ -222,6 +247,16 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
     maxScoreF(iB + 1) = max(scoreF_b);
     pNonParamUnc = pNonParamUnc + (scoreF_b >= scoreF);
     pNonParamFWE = pNonParamFWE + (maxScoreF(iB + 1) >= scoreF);
+    
+    % Save some resampled scores or p-values if required
+    if ~isempty(minScoreFToSave)
+        results.resampledScores{iB} = scoreF_b(scoreF_b >= minScoreFToSave);
+    end
+    if ~isempty(maxPValueToSave)
+        % first, need to convert to p-values 
+        p_b = tcdf(-sqrt(scoreF_b), approxDof)*2;
+        results.resampledPValues{iB} = p_b(p_b <= maxPValueToSave);
+    end
   end % for iB = 1:nB
   
   % format p-values correctly

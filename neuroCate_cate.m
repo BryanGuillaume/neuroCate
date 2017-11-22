@@ -21,12 +21,19 @@ function [results] = neuroCate_cate(Y,X,M,nZ,varargin)
 %        smaller than or equal to 0.01. 
 %        The importance of not saving everything is to limit the size of the
 %        output. 
+%   'clusterFormingPValueThreshold' - Per default, does not do any
+%        cluster-wise inference. If a value is set and a non-parametric
+%        procedure is used, a non-parametric cluster-wise analysis will be
+%        run.
+%        Note that a p-value threshold is expexted here
+%    'XYZ_vox' - Location of the voxels needed to detect clusters for 
+%        cluster-wise inference. 
 
 % deal with the optional parameters
-paramNames = {'inference', 'residAdj', 'nB', 'seed', 'resamplingMatrix', 'saveResampledFScores>=', 'saveResampledPValues<='};
-defaults   = {'parametric', true, 999, 0, [], [], []};
+paramNames = {'inference', 'residAdj', 'nB', 'seed', 'resamplingMatrix', 'saveResampledFScores>=', 'saveResampledPValues<=', 'clusterFormingPValueThreshold', 'XYZ_vox'};
+defaults   = {'parametric', true, 999, 0, [], [], [], [], []};
 
-[inference, residAdj, nB, seed, resamplingMatrix, minScoreFToSave, maxPValueToSave]...
+[inference, residAdj, nB, seed, resamplingMatrix, minScoreFToSave, maxPValueToSave, pClusThresh, XYZ_vox]...
   = internal.stats.parseArgs(paramNames, defaults, varargin{:});
 
 % compute useful variables from inputs
@@ -76,7 +83,21 @@ if ~strcmpi(inference, 'parametric')
         end
       end
     end
+    if isempty(pClusThresh) && isempty(XYZ_vox)
+        clusterWise = false;
+    elseif isempty(pClusThresh) || isempty(XYZ_vox)
+        error('There is not enough information to conduct a cluster-wise inference. Please set both the voxel locations and cluster-forming threshold')
+    else
+        clusterWise = true;
+        if pClusThresh > 0.5
+            error('The cluster-wise forming threshold does not seem small enough. As a reminder, this should be a p-value threshold. We recommend a default value of 0.001')
+        end
+        % convert p-value threshold to F treshold for efficiency
+        fClusThresh = tinv(pClusThresh/2, approxDof)^2;
+    end
   end
+else
+    clusterWise = false;
 end
 
 % compute the rotation matrix and related variables
@@ -159,6 +180,27 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
   pNonParamUnc = ones(1, nVox);
   pNonParamFWE = ones(1, nVox);
   
+  % save cluster sizes for cluster-wise inferences
+  if clusterWise
+    maxClusterSize = nan(nB+1,1);
+    activatedVoxels = scoreF >= fClusThresh;
+    LocActivatedVoxels = XYZ_vox(:,activatedVoxels);
+    if isempty(LocActivatedVoxels)
+      maxClusterSize(1) = 0;
+      nCluster          = 0;
+      clusterSize       = [];
+      pClusNonParamFWE  = [];
+      clusterAssignment = [];
+      warning('No voxels survived the cluster forming thresholding.');
+    else
+      clusterAssignment = spm_clusters(LocActivatedVoxels);
+      nCluster     = max(clusterAssignment);
+      clusterSize = histc(clusterAssignment,1:nCluster);
+      maxClusterSize(1) = max(clusterSize);
+      pClusNonParamFWE = ones(1, nCluster);
+    end
+  end
+    
   % create cell arrays to save resampled score or p-values if required
   if ~isempty(minScoreFToSave)
   	results.resampledScores = cell(nB, 1);
@@ -247,7 +289,7 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
     maxScoreF(iB + 1) = max(scoreF_b);
     pNonParamUnc = pNonParamUnc + (scoreF_b >= scoreF);
     pNonParamFWE = pNonParamFWE + (maxScoreF(iB + 1) >= scoreF);
-    
+        
     % Save some resampled scores or p-values if required
     if ~isempty(minScoreFToSave)
         results.resampledScores{iB} = scoreF_b(scoreF_b >= minScoreFToSave);
@@ -257,12 +299,33 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
         p_b = tcdf(-sqrt(scoreF_b), approxDof)*2;
         results.resampledPValues{iB} = p_b(p_b <= maxPValueToSave);
     end
+    if clusterWise
+      activatedVoxels_b = scoreF_b >= fClusThresh;
+      LocActivatedVoxels_b = XYZ_vox(:,activatedVoxels_b);
+      if isempty(LocActivatedVoxels_b)
+        maxClusterSize(iB + 1) = 0;
+      else
+        clusterAssignment_b = spm_clusters(LocActivatedVoxels_b);
+        nCluster_b     = max(clusterAssignment_b);
+        clusterSize_b = histc(clusterAssignment_b,1:nCluster_b);
+        maxClusterSize(iB + 1) = max(clusterSize_b);
+      end
+      if ~isempty(LocActivatedVoxels)
+        pClusNonParamFWE = pClusNonParamFWE + (maxClusterSize(iB + 1) >= clusterSize);
+      end
+    end   
   end % for iB = 1:nB
   
   % format p-values correctly
   pNonParamUnc = pNonParamUnc / (nB + 1);
   pNonParamFWE = pNonParamFWE / (nB + 1);
-  
+  if clusterWise
+    results.pClusNonParamFWE  = pClusNonParamFWE / (nB + 1);
+    results.maxClusterSize    = maxClusterSize;
+    results.clusterSize       = clusterSize;
+    results.clusterAssignment = nan(1, nVox);
+    results.clusterAssignment(activatedVoxels) = clusterAssignment;
+  end
   % save results
   results.pNonParamUnc = pNonParamUnc;
   results.pNonParamFWE = pNonParamFWE;

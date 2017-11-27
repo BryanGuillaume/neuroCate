@@ -320,6 +320,7 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
   pNonParamUnc = pNonParamUnc / (nB + 1);
   pNonParamFWE = pNonParamFWE / (nB + 1);
   if clusterWise
+    results.pClusThresh = pClusThresh;
     results.pClusNonParamFWE  = pClusNonParamFWE / (nB + 1);
     results.maxClusterSize    = maxClusterSize;
     results.clusterSize       = clusterSize;

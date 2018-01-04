@@ -6,7 +6,7 @@
 % nSubj:  number of subjets
 % nVox:   number of voxels (note that we use the term voxels here because we 
 %           assume that the data comes from 3D images, but any other type of 
-%           data should work)
+%           data should work; for example, vertex)
 % nZ:     number of unknown covariates
 % Y:      neuroimaging data matrix of size nSubj by nVox
 % X:      design matrix of size nSubj by nX containing nX covariates of no
@@ -32,6 +32,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % STEP 2: Format/load the design matrices X and M
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Note that no global intercept is automatically added. If needed, it must
+% be added in X as is done below
 load('covariatesForDemo')
 X = [ones(nSubj,1), genderForDemo, adjGestationalAgeForDemo - mean(adjGestationalAgeForDemo)];
 
@@ -54,7 +56,7 @@ for iML = 1:nML
   
   % [nZ(iML), S, S0, ER] = estimateNumberOfFactors(Y, [X M], nZMax);  
 end
-% select the most frequent estimate as a common nZ across methylation locus
+% select the most frequent estimate as a common nZ across all methylation loci
 nZ_common = mode(nZ);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -74,7 +76,7 @@ resamplingMatrixWB = neuroCate_resamplingMatrix(nSubj, nB, 'wild bootstrap', see
 resamplingMatrixPerm = neuroCate_resamplingMatrix(nSubj, nB, 'permutation', seed);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% STEP 5: run CATE at each methylation locus and buils the max. global score
+% STEP 5: run CATE at each methylation locus and build the max. global score
 % distribution
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 maxGlobalScoreF = zeros(nB + 1,1);
@@ -89,7 +91,7 @@ for iML = 1:nML
   % nML is 1)
   
   % save the results for each meth. locus on disk. 
-  % Note that result is a structure array containing a lot of fields of 
+  % Note that the variable "result" is a structure array containing a lot of fields of 
   % variables. If needed, save only the relevant fields to spare some disk memory
   str = sprintf('result_%i', iML); % please change the naming by something relevant for your study
   save(str, 'result');
@@ -118,7 +120,7 @@ for iML = 1:nML
   
   % produce output images here instead of in STEP 7 (see below for more 
   % details about this line of code)
-  % This step could be skipped or used only if, for example, 
+  % This step can produce a lot of data and could be skipped or used only if, for example, 
   % min(pGlobalFWER) <= pThreshold or min(pGlobalFWER) < 1  
   neuroCate_createOutputImage(imagesPath(1,:),...
                               sprintf('lFWEp_neuroCate_FA_2Z_wb_ML%i.img', iML),...

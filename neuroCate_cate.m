@@ -27,14 +27,62 @@ function [results] = neuroCate_cate(Y,X,M,nZ,varargin)
 %        run.
 %        Note that a p-value threshold is expexted here
 %    'XYZ_vox' - Location of the voxels needed to detect clusters for 
-%        cluster-wise inference. 
+%        cluster-wise inference.
+%    'outputName' - Per default, does not save anything on disk, if a
+%        name is specified, the utput will be saved on disk using this name
 
 % deal with the optional parameters
-paramNames = {'inference', 'residAdj', 'nB', 'seed', 'resamplingMatrix', 'saveResampledFScores>=', 'saveResampledPValues<=', 'clusterFormingPValueThreshold', 'XYZ_vox'};
-defaults   = {'parametric', true, 999, 0, [], [], [], [], []};
+paramNames = {'inference', 'residAdj', 'nB', 'seed', 'resamplingMatrix', 'saveResampledFScores>=', 'saveResampledPValues<=', 'clusterFormingPValueThreshold', 'XYZ_vox', 'outputName'};
+defaults   = {'parametric', true, 999, 0, [], [], [], [], [], []};
 
-[inference, residAdj, nB, seed, resamplingMatrix, minScoreFToSave, maxPValueToSave, pClusThresh, XYZ_vox]...
+[inference, residAdj, nB, seed, resamplingMatrix, minScoreFToSave, maxPValueToSave, pClusThresh, XYZ_vox, outputName]...
   = internal.stats.parseArgs(paramNames, defaults, varargin{:});
+
+% load inputs if specified as path to ".mat" files
+if ischar(X)
+  X = importdata(X);
+end
+if ischar(M)
+  M = importdata(M);
+end
+if ischar(Y)
+  Y = importdata(Y);
+end
+if ischar(resamplingMatrix)
+  resamplingMatrix = importdata(resamplingMatrix);
+end
+if ischar(XYZ_vox)
+  XYZ_vox = importdata(XYZ_vox);
+end
+
+% if some inputs are characters instead of numeric/logical  values, convert them
+if ischar(residAdj)
+  if strcmpi(residAdj, 'true')
+    residAdj = true;
+  elseif strcmpi(residAdj, 'false')
+    residAdj = false;
+  else
+    error("residAdj is not well specified. Please use true or false")
+  end
+end
+if ischar(nZ)
+  nZ = str2double(nZ);
+end
+if ischar(nB)
+  nB = str2double(nB);
+end
+if ischar(seed)
+  seed = str2double(seed);
+end
+if ischar(minScoreFToSave)
+  minScoreFToSave = str2double(minScoreFToSave);
+end
+if ischar(maxPValueToSave)
+  maxPValueToSave = str2double(maxPValueToSave);
+end
+if ischar(pClusThresh)
+  pClusThresh = str2double(pClusThresh);
+end
 
 % compute useful variables from inputs
 nX = size(X,2);
@@ -44,9 +92,15 @@ if (nM > 1)
 end
 [nSubj, nVox] = size(Y);
 XM = [X M];
+
 invSigmaXM = inv(XM' * XM / nSubj);
 OmegaM = invSigmaXM((nX + 1):end, (nX + 1):end);
 approxDof = nSubj - nX - nM - nZ;
+
+% check if the inputs have a correct sizes
+if size(X,1) ~= size(M,1) || size(X,1) ~= nSubj
+  error("Inputs not well specified! Please ensure that the subjects are specified in rows.")
+end
 
 % check some inputs regarding non-paramteric procedures before going further
 if ~strcmpi(inference, 'parametric') && ~strcmpi(inference, 'permutation') && ~strcmpi(inference, 'wb')
@@ -332,6 +386,10 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
   results.pNonParamFWE = pNonParamFWE;
   results.maxScoreF    = maxScoreF;
   fprintf('\n');
+  
+  if ~isempty(outputName)
+    save(outputName, 'results');
+  end
 end
 
 

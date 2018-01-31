@@ -28,7 +28,6 @@
 % format.
 [Y, maskXYZ_vox, maskXYZ_mm, imagesPath, maskPath] = neuroCate_3Dimages2Matrix();
 [nSubj, nVox] = size(Y);
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % STEP 2: Format/load the design matrices X and M
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -130,7 +129,7 @@ for iML = 1:nML
 end
 % save the minimum global FWER-corected p-value per meth. locus. This is
 % useful to quickly locate significant meth. loci. 
-save('minPGlobalFWERPerML.mat', minPGlobalFWERPerML)
+save('minPGlobalFWERPerML.mat', 'minPGlobalFWERPerML')
 
 % If images info are saved, the results can be mapped into images
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

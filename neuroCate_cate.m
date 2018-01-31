@@ -1,42 +1,91 @@
 function [results] = neuroCate_cate(Y,X,M,nZ,varargin)
+% MANDATORY INPUTS:
+%   Y - output data. It must be an nSubj by nVox matrix. This matrix can be 
+%         specified as a variable in the workspace or as a ".mat" file
+%         containing (only) such a matrix
+%   X - Design  matrix of nX covariates of no interest. It must be an
+%         nSubj by nX matrix specified as a variable in the workspace or as
+%         a ".mat" file containing (only) such a matrix
+%   M - Design  matrix of 1 covariate of direct interest. It must be an
+%         nSubj by 1 matrix specified as a variable in the workspace or as
+%         a ".mat" file containing (only) such a matrix
+%   nZ - Number of unknown covariates to account for. It can be estimated
+%         using the function neuroCate_estimateNumberOfFactors.m. 
+% OPTIONAL INPUTS (must be specified in pair):        
 %   'inference' - Define the type of inference
-%       Choices are:
+%         Choices are:
 %           'parametric' - only a parametric inference is conducted (the default).
 %           'permutation'- A permutation inference is conducted (the parametric
-%                          inference comes for free)
+%                          is also computed)
 %           'wb'         - A Wild Bootstrap inference is conducted (the parametric
-%                          inference comes for free)
-%   'saveResampledFScores>=' - Per default, does not save anything
-%        (i.e. behave like the set value is Inf)
-%        In practice, those scores can be used to compute a non-parameric
-%        FDR as described in Millstein and Volfson (2013). For example,
-%        setting this to 4, would save only F-scores greater or equal to 4.
-%        The importance of not saving everything is to limit the size of the
-%        output.
-%   'saveResampledPValues<=' - Per default, does not save anything
-%        (i.e. behave like the set value is 0)
-%        In practice, those p-values can be used to compute a non-parameric
-%        FDR as described in Millstein and Volfson (2013). For example,
-%        setting this to 0.01 would save all resampled uncorrected p-values 
-%        smaller than or equal to 0.01. 
-%        The importance of not saving everything is to limit the size of the
-%        output. 
-%   'clusterFormingPValueThreshold' - Per default, does not do any
-%        cluster-wise inference. If a value is set and a non-parametric
-%        procedure is used, a non-parametric cluster-wise analysis will be
-%        run.
-%        Note that a p-value threshold is expexted here
+%                          is also computed)
+%   'residAdj' - boolean value (true or false) that indicates if the
+%         resampled residuals are adjusted for small sample bias. Per
+%         default, this is set to true.
+%   'nB' - number of resamples (does not count the original sample). Per
+%         defaults, it is set to 999. However, we recommend to use a higher
+%         number if possible, such as 9,999 in order to increase the precision of
+%         the estimated p-values. 
+%   'seed' - seed number used for the resampling if a resampling matrix is
+%         not supplied. Per default, it is set to 0.
+%   'resamplingMatrix' - resampled matrix supplied to ensure that is
+%         consistent accross several run of CATE. This is important for an EWAS,
+%         particularly if setting the seed cannot be trusted (e.g., when the systems 
+%         where CATE is run vary). Its size must be nSubj by nB. It can be computed
+%         using the function neuroCate_resamplingMatrix.m and can be
+%         specified either as a variable in the workspace or as a ".mat"
+%         file containing (only) the resampling matrix.
+%   'saveResampledFScores>=' - Save all the F-scores >= to the set values.
+%         Per default, does not save anything (i.e. behave like the set value is Inf)
+%         In practice, those F-scores can be used to compute a non-parameric
+%         FDR as described in Millstein and Volfson (2013). For example,
+%         setting this to 4, would save only F-scores greater or equal to 4.
+%         The importance of not saving everything is to limit the size of the
+%         output.
+%   'saveResampledPValues<=' - Save all P-values <= to the set P-value. 
+%         Per default, does not save anything (i.e. behave like the set
+%         value is 0). In practice, those p-values can be used to compute 
+%         a non-parameric FDR as described in Millstein and Volfson (2013). 
+%         For example, setting this to 0.01 would save all resampled uncorrected  
+%         p-values smaller than or equal to 0.01. 
+%         The importance of not saving everything is to limit the size of the
+%          output. 
+%   'clusterFormingPValueThreshold' - Per default, the function does not do any
+%         cluster-wise inference. If a value is set and a non-parametric
+%         procedure is used, a non-parametric cluster-wise analysis will be
+%         run.
+%         Note that a p-value threshold is expected here.
 %    'XYZ_vox' - Location of the voxels needed to detect clusters for 
-%        cluster-wise inference.
-%    'outputName' - Per default, does not save anything on disk, if a
-%        name is specified, the utput will be saved on disk using this name
+%         cluster-wise inference.
+%    'outputName' - Per default, the function does not save anything on disk 
+%         and only return the results on the workspace. If a name is specified, 
+%         the output will also be saved on disk using this name.
 
 % deal with the optional parameters
 paramNames = {'inference', 'residAdj', 'nB', 'seed', 'resamplingMatrix', 'saveResampledFScores>=', 'saveResampledPValues<=', 'clusterFormingPValueThreshold', 'XYZ_vox', 'outputName'};
 defaults   = {'parametric', true, 999, 0, [], [], [], [], [], []};
-
-[inference, residAdj, nB, seed, resamplingMatrix, minScoreFToSave, maxPValueToSave, pClusThresh, XYZ_vox, outputName]...
-  = internal.stats.parseArgs(paramNames, defaults, varargin{:});
+try
+    [inference, residAdj, nB, seed, resamplingMatrix, minScoreFToSave, maxPValueToSave, pClusThresh, XYZ_vox, outputName]...
+    = internal.stats.parseArgs(paramNames, defaults, varargin{:});
+catch
+  for i = 1:length(paramNames)
+    if any(strcmpi(paramNames{i}, varargin))
+      % change the default value to the one specified in varargin
+      defaults{i} = varargin{(find(strcmpi(paramNames{i}, varargin)) + 1)};
+    end
+  end
+  % parse the values in the parameters
+  inference         = defaults{1};
+  residAdj          = defaults{2};
+  nB                = defaults{3};
+  seed              = defaults{4};
+  resamplingMatrix  = defaults{5};
+  minScoreFToSave   = defaults{6};
+  maxPValueToSave   = defaults{7};
+  pClusThresh       = defaults{8};
+  XYZ_vox           = defaults{9};
+  outputName        = defaults{10};
+end
 
 % load inputs if specified as path to ".mat" files
 if ischar(X)
@@ -62,7 +111,7 @@ if ischar(residAdj)
   elseif strcmpi(residAdj, 'false')
     residAdj = false;
   else
-    error("residAdj is not well specified. Please use true or false")
+    error('residAdj is not well specified. Please use true or false')
   end
 end
 if ischar(nZ)
@@ -99,7 +148,7 @@ approxDof = nSubj - nX - nM - nZ;
 
 % check if the inputs have a correct sizes
 if size(X,1) ~= size(M,1) || size(X,1) ~= nSubj
-  error("Inputs not well specified! Please ensure that the subjects are specified in rows.")
+  error('Inputs not well specified! Please ensure that the subjects are specified in rows.')
 end
 
 % check some inputs regarding non-paramteric procedures before going further
@@ -155,7 +204,12 @@ else
 end
 
 % compute the rotation matrix and related variables
-[rotationMatrix, ~]= qr(XM);
+try
+  [rotationMatrix, ~]= qr(XM);
+catch
+  [rotationMatrix, varToDelete]= qr(XM);
+  clear varToDelete;
+end
 rotationMatrix = rotationMatrix';
 rotatedMM = rotationMatrix((nX + 1):(nX + nM),:) * M; % Q_M' M
 rotY = rotationMatrix((nX + 1):end,:) * Y;
@@ -315,8 +369,12 @@ if strcmpi(inference, 'permutation') || strcmpi(inference, 'perm') || strcmpi(in
     % estimate the model an compute resampled scores
     if nZ > 0
       % run the factor analysis using PCA
-      [~, betaZ_b, sigmaSquare_b] = neuroCate_fastPCA(rotY_b((nM + 1):end,:), nZ);
-      
+      try
+        [~, betaZ_b, sigmaSquare_b] = neuroCate_fastPCA(rotY_b((nM + 1):end,:), nZ);
+      catch
+        [varToDelete, betaZ_b, sigmaSquare_b] = neuroCate_fastPCA(rotY_b((nM + 1):end,:), nZ);
+        clear varToDelete;
+      end
       % run the robust regression
       scaledRotMY_b = rotatedMM \ rotY_b(1:nM,:); % scale the data and variance estimate by (Q_M' M)^-1
       alphaM_b = neuroCate_robustRegression(scaledRotMY_b, betaZ_b,...
